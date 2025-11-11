@@ -4,9 +4,8 @@
 // ============================================
 // Configuration
 // ============================================
-const SUPABASE_URL = 'https://asdqtfuvjlsgjazseekm.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzZHF0ZnV2amxzZ2phenNlZWttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3NzAwODAsImV4cCI6MjA3ODM0NjA4MH0.wLnBozm_DHUQpM68PZXXJ_02u_tW3t5KVcupove926U';
-const ADMIN_KAKAO_ID = '4519453813';
+// admin.js에서 이미 선언되므로 여기서는 선언하지 않음
+// const SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_KAKAO_ID는 admin.js에서 전역으로 사용
 
 // Kakao SDK 설정
 const KAKAO_JS_KEY = 'acd2926a4589c862082be7210c5f142a'; // 카카오 JavaScript 키
@@ -71,6 +70,11 @@ async function checkAuth() {
     // 인증 성공 - 대시보드 표시
     showDashboard();
     updateAdminInfo();
+
+    // admin.js 초기화
+    if (typeof initAdminDashboard === 'function') {
+      initAdminDashboard();
+    }
 
   } catch (error) {
     console.error('인증 오류:', error);
@@ -163,9 +167,7 @@ function loginWithKakao() {
 
   // 카카오 SDK v2 방식: authorize 사용
   Kakao.Auth.authorize({
-    redirectUri: window.location.href,
-    // 팝업 방식으로 변경
-    prompts: 'login',
+    redirectUri: window.location.href
   });
 }
 

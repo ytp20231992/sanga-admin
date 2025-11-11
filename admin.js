@@ -4,9 +4,9 @@
 // ============================================
 // Configuration
 // ============================================
-const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
-const ADMIN_KAKAO_ID = 'YOUR_ADMIN_KAKAO_ID'; // 환경변수와 동일하게 설정
+const SUPABASE_URL = 'https://asdqtfuvjlsgjazseekm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzZHF0ZnV2amxzZ2phenNlZWttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3NzAwODAsImV4cCI6MjA3ODM0NjA4MH0.wLnBozm_DHUQpM68PZXXJ_02u_tW3t5KVcupove926U';
+const ADMIN_KAKAO_ID = '4519453813'; // 환경변수와 동일하게 설정
 
 // ============================================
 // State
@@ -19,7 +19,8 @@ let currentTab = 'users';
 // ============================================
 // Initialization
 // ============================================
-document.addEventListener('DOMContentLoaded', () => {
+// auth-guard.js에서 인증이 완료된 후 호출됨
+function initAdminDashboard() {
   initTabs();
   refreshData();
 
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
       searchUsers();
     }
   });
-});
+}
 
 // ============================================
 // Tab Management

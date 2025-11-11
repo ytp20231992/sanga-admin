@@ -649,11 +649,11 @@
   <!-- Kakao SDK -->
   <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 
-  <!-- Auth Guard (must load first) -->
-  <script src="auth-guard.js"></script>
-
-  <!-- Main Admin Script -->
+  <!-- Main Admin Script (must load first for global vars) -->
   <script src="admin.js"></script>
+
+  <!-- Auth Guard (loads after admin.js) -->
+  <script src="auth-guard.js"></script>
 
   <!-- Logout Button -->
   <script>
