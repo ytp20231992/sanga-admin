@@ -329,3 +329,5 @@ await callAdminAPI('update_app_config', {
 
 **제작**: SanGa Pro Admin Dashboard v1.0
 **최종 업데이트**: 2025년 1월
+#   s a n g a - a d m i n  
+ 
