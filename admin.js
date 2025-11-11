@@ -66,6 +66,8 @@ function switchTab(tab) {
   // Load data for tab
   if (tab === 'users') {
     loadUsers();
+  } else if (tab === 'groups') {
+    loadGroups();
   } else if (tab === 'subscriptions') {
     loadSubscriptions();
   } else if (tab === 'settings') {
@@ -283,6 +285,7 @@ function renderUsersTable() {
       <thead>
         <tr>
           <th>사용자</th>
+          <th>그룹</th>
           <th>인증 방식</th>
           <th>구독 플랜</th>
           <th>구독 상태</th>
@@ -300,6 +303,8 @@ function renderUsersTable() {
     const plan = sub.plan || 'free';
     const status = user.is_blocked ? 'blocked' : (sub.isActive ? 'active' : 'expired');
     const createdAt = new Date(user.created_at).toLocaleDateString('ko-KR');
+    const groupName = user.group_name || '미지정';
+    const groupColor = user.group_color || '#999';
 
     html += `
       <tr>
@@ -308,17 +313,24 @@ function renderUsersTable() {
           ${user.email ? `<br><small>${escapeHtml(user.email)}</small>` : ''}
           ${user.admin_memo ? `<br><small style="color: #999;">📝 ${escapeHtml(user.admin_memo)}</small>` : ''}
         </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="width:12px;height:12px;background:${groupColor};border-radius:3px;"></div>
+            <span>${escapeHtml(groupName)}</span>
+            <button class="action-btn" style="font-size:10px;padding:2px 6px;" onclick='openChangeGroupModal("${user.user_id}")'>변경</button>
+          </div>
+        </td>
         <td><span class="badge ${authType}">${authType === 'kakao' ? '카카오' : 'ID/PW'}</span></td>
         <td><span class="badge ${plan}">${plan.toUpperCase()}</span></td>
         <td><span class="badge ${status}">${getStatusText(status)}</span></td>
         <td>${createdAt}</td>
         <td>
           <button class="action-btn secondary" onclick='viewUser(${JSON.stringify(user)})'>👁️ 상세</button>
-          <button class="action-btn primary" onclick='openAddSubModal("${user.id}")'>➕ 구독</button>
-          <button class="action-btn success" onclick='openMemoModal("${user.id}", "${escapeHtml(user.admin_memo || '')}")'>📝 메모</button>
+          <button class="action-btn primary" onclick='openAddSubModal("${user.user_id}")'>➕ 구독</button>
+          <button class="action-btn success" onclick='openMemoModal("${user.user_id}", "${escapeHtml(user.admin_memo || '')}")'>📝 메모</button>
           ${user.is_blocked
-            ? `<button class="action-btn success" onclick='unblockUser("${user.id}")'>✅ 해제</button>`
-            : `<button class="action-btn danger" onclick='openBlockModal("${user.id}")'>🚫 차단</button>`
+            ? `<button class="action-btn success" onclick='unblockUser("${user.user_id}")'>✅ 해제</button>`
+            : `<button class="action-btn danger" onclick='openBlockModal("${user.user_id}")'>🚫 차단</button>`
           }
         </td>
       </tr>
@@ -662,4 +674,165 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// ============================================
+// Group Management
+// ============================================
+let currentGroups = [];
+
+async function loadGroups() {
+  try {
+    const result = await callAdminAPI('list_groups');
+    currentGroups = result.groups;
+    renderGroups();
+  } catch (error) {
+    showError('그룹 목록 로드 실패: ' + error.message);
+  }
+}
+
+function renderGroups() {
+  const content = document.getElementById('groupsContent');
+
+  if (!currentGroups || currentGroups.length === 0) {
+    content.innerHTML = '<p style="text-align:center;padding:40px;color:#999;">등록된 그룹이 없습니다.</p>';
+    return;
+  }
+
+  const html = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:40px;"></th>
+          <th>그룹명</th>
+          <th>설명</th>
+          <th style="width:80px;">시스템</th>
+          <th style="width:120px;">생성일</th>
+          <th style="width:150px;">작업</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${currentGroups.map(group => `
+          <tr>
+            <td><div style="width:20px;height:20px;background:${escapeHtml(group.color)};border-radius:4px;"></div></td>
+            <td><strong>${escapeHtml(group.name)}</strong></td>
+            <td>${escapeHtml(group.description || '-')}</td>
+            <td>${group.is_system ? '🔒 Yes' : 'No'}</td>
+            <td>${new Date(group.created_at).toLocaleDateString('ko-KR')}</td>
+            <td>
+              ${!group.is_system ? `
+                <button class="action-btn" onclick="showEditGroupModal('${group.id}')">✏️ 수정</button>
+                <button class="action-btn danger" onclick="confirmDeleteGroup('${group.id}', '${escapeHtml(group.name)}')">🗑️ 삭제</button>
+              ` : '<span style="color:#999;">-</span>'}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  content.innerHTML = html;
+}
+
+function showAddGroupModal() {
+  const name = prompt('그룹 이름을 입력하세요:');
+  if (!name || !name.trim()) return;
+
+  const description = prompt('그룹 설명을 입력하세요 (선택):');
+  const color = prompt('그룹 색상을 입력하세요 (예: #4CAF50):', '#667eea');
+
+  addGroup(name.trim(), description?.trim() || '', color || '#667eea');
+}
+
+async function addGroup(name, description, color) {
+  try {
+    const result = await callAdminAPI('add_group', { name, description, color });
+    showSuccess(result.message || '그룹이 추가되었습니다.');
+    loadGroups();
+  } catch (error) {
+    showError('그룹 추가 실패: ' + error.message);
+  }
+}
+
+function showEditGroupModal(groupId) {
+  const group = currentGroups.find(g => g.id === groupId);
+  if (!group) return;
+
+  const name = prompt('그룹 이름:', group.name);
+  if (name === null) return;
+
+  const description = prompt('그룹 설명:', group.description || '');
+  const color = prompt('그룹 색상 (예: #4CAF50):', group.color);
+
+  updateGroup(groupId, name.trim(), description?.trim() || '', color || group.color);
+}
+
+async function updateGroup(groupId, name, description, color) {
+  try {
+    const result = await callAdminAPI('update_group', { groupId, name, description, color });
+    showSuccess(result.message || '그룹이 수정되었습니다.');
+    loadGroups();
+  } catch (error) {
+    showError('그룹 수정 실패: ' + error.message);
+  }
+}
+
+function confirmDeleteGroup(groupId, groupName) {
+  if (!confirm(`"${groupName}" 그룹을 삭제하시겠습니까?\n이 그룹의 사용자들은 기본그룹으로 이동됩니다.`)) {
+    return;
+  }
+  deleteGroup(groupId);
+}
+
+async function deleteGroup(groupId) {
+  try {
+    const result = await callAdminAPI('delete_group', { groupId });
+    showSuccess(result.message || '그룹이 삭제되었습니다.');
+    loadGroups();
+  } catch (error) {
+    showError('그룹 삭제 실패: ' + error.message);
+  }
+}
+
+async function openChangeGroupModal(userId) {
+  try {
+    // 그룹 목록 로드
+    const result = await callAdminAPI('list_groups');
+    const groups = result.groups;
+
+    if (!groups || groups.length === 0) {
+      alert('사용 가능한 그룹이 없습니다.');
+      return;
+    }
+
+    // 그룹 선택 프롬프트
+    let message = '그룹을 선택하세요:\n\n';
+    groups.forEach((g, i) => {
+      message += `${i + 1}. ${g.name} - ${g.description || '설명 없음'}\n`;
+    });
+
+    const choice = prompt(message + '\n번호를 입력하세요:');
+    if (!choice) return;
+
+    const index = parseInt(choice) - 1;
+    if (index < 0 || index >= groups.length) {
+      alert('잘못된 선택입니다.');
+      return;
+    }
+
+    const selectedGroup = groups[index];
+    await changeUserGroup(userId, selectedGroup.id);
+  } catch (error) {
+    showError('그룹 목록 로드 실패: ' + error.message);
+  }
+}
+
+async function changeUserGroup(userId, groupId) {
+  try {
+    const result = await callAdminAPI('change_user_group', { userId, groupId });
+    showSuccess(result.message || '사용자 그룹이 변경되었습니다.');
+    loadUsers(); // 사용자 목록 새로고침
+  } catch (error) {
+    showError('그룹 변경 실패: ' + error.message);
+  }
 }
