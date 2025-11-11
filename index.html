@@ -646,6 +646,49 @@
     </div>
   </div>
 
+  <!-- Kakao SDK -->
+  <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+
+  <!-- Auth Guard (must load first) -->
+  <script src="auth-guard.js"></script>
+
+  <!-- Main Admin Script -->
   <script src="admin.js"></script>
+
+  <!-- Logout Button -->
+  <script>
+    // 헤더에 로그아웃 버튼 추가
+    document.addEventListener('DOMContentLoaded', () => {
+      const adminInfo = document.querySelector('.admin-info');
+      if (adminInfo) {
+        const logoutBtn = document.createElement('button');
+        logoutBtn.textContent = '🚪 로그아웃';
+        logoutBtn.style.cssText = `
+          margin-top: 8px;
+          padding: 6px 12px;
+          background: #ff6b6b;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s;
+        `;
+        logoutBtn.addEventListener('mouseenter', () => {
+          logoutBtn.style.background = '#ee5a52';
+        });
+        logoutBtn.addEventListener('mouseleave', () => {
+          logoutBtn.style.background = '#ff6b6b';
+        });
+        logoutBtn.addEventListener('click', () => {
+          if (confirm('로그아웃하시겠습니까?')) {
+            window.adminLogout();
+          }
+        });
+        adminInfo.appendChild(logoutBtn);
+      }
+    });
+  </script>
 </body>
 </html>
