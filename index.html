@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SanGa Pro - 관리자 대시보드</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 24px 32px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #667eea;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .admin-info {
+      text-align: right;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .admin-info .admin-name {
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-card .label {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: 800;
+      color: #667eea;
+    }
+
+    .stat-card .subvalue {
+      font-size: 12px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    .main-content {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 12px;
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .tab-btn.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: rgba(102, 126, 234, 0.1);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .search-bar input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .search-bar button {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .search-bar button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+
+    thead {
+      background: #f5f5f5;
+    }
+
+    th {
+      padding: 14px 12px;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 700;
+      color: #333;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    td {
+      padding: 14px 12px;
+      font-size: 14px;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle;
+    }
+
+    tbody tr:hover {
+      background: #f9f9f9;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge.free { background: #e0e0e0; color: #666; }
+    .badge.pro { background: #667eea; color: white; }
+    .badge.demo { background: #feca57; color: #333; }
+    .badge.active { background: #4CAF50; color: white; }
+    .badge.expired { background: #ff6b6b; color: white; }
+    .badge.blocked { background: #000; color: white; }
+    .badge.kakao { background: #FEE500; color: #000; }
+    .badge.password { background: #536dfe; color: white; }
+
+    .action-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-right: 4px;
+    }
+
+    .action-btn.primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .action-btn.danger {
+      background: #ff6b6b;
+      color: white;
+    }
+
+    .action-btn.success {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .action-btn.secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 32px;
+      border-radius: 16px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .form-actions button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .form-actions .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .form-actions .btn-cancel {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .form-actions button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .error-box {
+      background: #fff3f3;
+      border: 2px solid #ff6b6b;
+      color: #c92a2a;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .error-box.show {
+      display: block;
+    }
+
+    .success-box {
+      background: #f1f8f4;
+      border: 2px solid #4CAF50;
+      color: #2e7d32;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .success-box.show {
+      display: block;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .empty-state .message {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .empty-state .submessage {
+      font-size: 13px;
+    }
+
+    .user-detail-row {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .user-detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .user-detail-row .label {
+      font-weight: 700;
+      color: #666;
+      font-size: 13px;
+    }
+
+    .user-detail-row .value {
+      color: #333;
+      font-size: 14px;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .pagination button {
+      padding: 8px 14px;
+      border: 2px solid #e0e0e0;
+      background: white;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      border-color: #667eea;
+      color: #667eea;
+    }
+
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .pagination .page-info {
+      font-size: 13px;
+      color: #666;
+      margin: 0 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🏠 SanGa Pro 관리자</h1>
+      <div class="admin-info">
+        <div class="admin-name" id="adminName">-</div>
+        <div id="lastSync">-</div>
+      </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">전체 사용자</div>
+        <div class="value" id="statTotalUsers">-</div>
+        <div class="subvalue">등록된 계정 수</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">활성 구독</div>
+        <div class="value" id="statActiveSubscriptions">-</div>
+        <div class="subvalue">현재 유료 사용자</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">만료 예정</div>
+        <div class="value" id="statExpiringSoon">-</div>
+        <div class="subvalue">7일 이내 만료</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">차단된 계정</div>
+        <div class="value" id="statBlocked">-</div>
+        <div class="subvalue">접근 제한 중</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="users">사용자 관리</button>
+        <button class="tab-btn" data-tab="subscriptions">구독 관리</button>
+        <button class="tab-btn" data-tab="settings">앱 설정</button>
+      </div>
+
+      <!-- Tab: Users -->
+      <div class="tab-content active" id="tab-users">
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="사용자 검색 (아이디, 닉네임, 이메일)">
+          <button onclick="searchUsers()">🔍 검색</button>
+          <button onclick="refreshData()" class="action-btn secondary">🔄 새로고침</button>
+        </div>
+
+        <div class="error-box" id="errorBox"></div>
+        <div class="success-box" id="successBox"></div>
+
+        <div class="loading" id="loading">
+          로딩 중...
+        </div>
+
+        <div id="usersTableContainer"></div>
+
+        <div class="pagination" id="pagination" style="display: none;">
+          <button onclick="previousPage()">◀ 이전</button>
+          <span class="page-info">
+            <span id="currentPage">1</span> / <span id="totalPages">1</span>
+          </span>
+          <button onclick="nextPage()">다음 ▶</button>
+        </div>
+      </div>
+
+      <!-- Tab: Subscriptions -->
+      <div class="tab-content" id="tab-subscriptions">
+        <h3 style="margin-bottom: 16px;">구독 현황</h3>
+        <div id="subscriptionsContent"></div>
+      </div>
+
+      <!-- Tab: Settings -->
+      <div class="tab-content" id="tab-settings">
+        <h3 style="margin-bottom: 16px;">앱 설정</h3>
+        <div class="form-group">
+          <label>최신 버전</label>
+          <input type="text" id="settingLatestVersion" placeholder="예: 2.0.2">
+        </div>
+        <div class="form-group">
+          <label>최소 지원 버전</label>
+          <input type="text" id="settingMinVersion" placeholder="예: 2.0.0">
+        </div>
+        <div class="form-group">
+          <label>공지사항</label>
+          <textarea id="settingAnnouncement" placeholder="사용자에게 표시될 공지사항"></textarea>
+        </div>
+        <button class="action-btn primary" onclick="updateAppSettings()">💾 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: User Detail -->
+  <div class="modal" id="userModal">
+    <div class="modal-content">
+      <div class="modal-header">사용자 상세 정보</div>
+      <div id="userDetailContent"></div>
+      <div class="form-actions">
+        <button class="btn-cancel" onclick="closeModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Subscription -->
+  <div class="modal" id="addSubModal">
+    <div class="modal-content">
+      <div class="modal-header">구독 추가</div>
+      <form id="addSubForm">
+        <input type="hidden" id="addSubUserId">
+        <div class="form-group">
+          <label>플랜</label>
+          <select id="addSubPlan">
+            <option value="free">Free</option>
+            <option value="pro" selected>Pro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>기간 (일)</label>
+          <input type="number" id="addSubDays" value="30" min="1" max="365">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" onclick="closeModal()">취소</button>
+          <button type="submit" class="btn-primary">추가</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Memo -->
+  <div class="modal" id="memoModal">
+    <div class="modal-content">
+      <div class="modal-header">메모 수정</div>
+      <form id="memoForm">
+        <input type="hidden" id="memoUserId">
+        <div class="form-group">
+          <label>관리자 메모</label>
+          <textarea id="memoText" placeholder="이 사용자에 대한 메모를 입력하세요"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" onclick="closeModal()">취소</button>
+          <button type="submit" class="btn-primary">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Block User -->
+  <div class="modal" id="blockModal">
+    <div class="modal-content">
+      <div class="modal-header">사용자 차단</div>
+      <form id="blockForm">
+        <input type="hidden" id="blockUserId">
+        <div class="form-group">
+          <label>차단 사유</label>
+          <textarea id="blockReason" placeholder="차단 사유를 입력하세요" required></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" onclick="closeModal()">취소</button>
+          <button type="submit" class="btn-primary">차단</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

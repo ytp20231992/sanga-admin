@@ -1,0 +1,658 @@
+// admin.js
+// 관리자 대시보드 JavaScript
+
+// ============================================
+// Configuration
+// ============================================
+const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+const ADMIN_KAKAO_ID = 'YOUR_ADMIN_KAKAO_ID'; // 환경변수와 동일하게 설정
+
+// ============================================
+// State
+// ============================================
+let currentUsers = [];
+let currentPage = 1;
+const USERS_PER_PAGE = 20;
+let currentTab = 'users';
+
+// ============================================
+// Initialization
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+  initTabs();
+  refreshData();
+
+  // Form handlers
+  document.getElementById('addSubForm').addEventListener('submit', handleAddSubscription);
+  document.getElementById('memoForm').addEventListener('submit', handleUpdateMemo);
+  document.getElementById('blockForm').addEventListener('submit', handleBlockUser);
+
+  // Search on Enter
+  document.getElementById('searchInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      searchUsers();
+    }
+  });
+});
+
+// ============================================
+// Tab Management
+// ============================================
+function initTabs() {
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const tab = button.dataset.tab;
+      switchTab(tab);
+    });
+  });
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+
+  // Update buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+
+  // Update content
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.toggle('active', content.id === `tab-${tab}`);
+  });
+
+  // Load data for tab
+  if (tab === 'users') {
+    loadUsers();
+  } else if (tab === 'subscriptions') {
+    loadSubscriptions();
+  } else if (tab === 'settings') {
+    loadAppSettings();
+  }
+}
+
+// ============================================
+// API Calls
+// ============================================
+async function callAdminAPI(action, data = {}) {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-manage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        admin_kakao_id: ADMIN_KAKAO_ID,
+        action: action,
+        ...data
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'API 호출 실패');
+    }
+
+    return result;
+  } catch (error) {
+    console.error('API 오류:', error);
+    showError(error.message);
+    throw error;
+  }
+}
+
+// ============================================
+// Data Loading
+// ============================================
+async function refreshData() {
+  showLoading(true);
+  hideMessages();
+
+  try {
+    // Load stats
+    const stats = await callAdminAPI('get_stats');
+    updateStats(stats);
+
+    // Load current tab data
+    if (currentTab === 'users') {
+      await loadUsers();
+    } else if (currentTab === 'subscriptions') {
+      await loadSubscriptions();
+    } else if (currentTab === 'settings') {
+      await loadAppSettings();
+    }
+
+    // Update sync time
+    document.getElementById('lastSync').textContent =
+      `마지막 동기화: ${new Date().toLocaleTimeString('ko-KR')}`;
+
+    showSuccess('데이터를 새로고침했습니다.');
+    setTimeout(hideMessages, 3000);
+
+  } catch (error) {
+    showError('데이터 로드 실패: ' + error.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function loadUsers(search = '') {
+  showLoading(true);
+
+  try {
+    const result = await callAdminAPI('list_users', {
+      search: search || undefined
+    });
+
+    currentUsers = result.users || [];
+    currentPage = 1;
+
+    renderUsersTable();
+  } catch (error) {
+    showError('사용자 목록 로드 실패');
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function loadSubscriptions() {
+  const container = document.getElementById('subscriptionsContent');
+
+  try {
+    const result = await callAdminAPI('list_users');
+    const users = result.users || [];
+
+    // Filter users with active subscriptions
+    const activeSubscriptions = users.filter(u =>
+      u.subscription && u.subscription.isActive
+    );
+
+    if (activeSubscriptions.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <div class="message">활성 구독이 없습니다</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Render table
+    let html = `
+      <table>
+        <thead>
+          <tr>
+            <th>사용자</th>
+            <th>플랜</th>
+            <th>시작일</th>
+            <th>종료일</th>
+            <th>남은 기간</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    activeSubscriptions.forEach(user => {
+      const sub = user.subscription;
+      const startDate = new Date(sub.startDate).toLocaleDateString('ko-KR');
+      const endDate = new Date(sub.endDate).toLocaleDateString('ko-KR');
+
+      html += `
+        <tr>
+          <td>
+            <strong>${escapeHtml(user.nickname || user.username || user.kakao_id)}</strong>
+            ${user.email ? `<br><small>${escapeHtml(user.email)}</small>` : ''}
+          </td>
+          <td><span class="badge ${sub.plan}">${sub.plan.toUpperCase()}</span></td>
+          <td>${startDate}</td>
+          <td>${endDate}</td>
+          <td>${sub.daysLeft}일</td>
+          <td><span class="badge active">활성</span></td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+
+  } catch (error) {
+    showError('구독 목록 로드 실패');
+  }
+}
+
+async function loadAppSettings() {
+  try {
+    const result = await callAdminAPI('get_app_config');
+    const config = result.config;
+
+    if (config) {
+      document.getElementById('settingLatestVersion').value = config.latestVersion || '';
+      document.getElementById('settingMinVersion').value = config.minVersion || '';
+      document.getElementById('settingAnnouncement').value = config.announcement || '';
+    }
+  } catch (error) {
+    showError('앱 설정 로드 실패');
+  }
+}
+
+// ============================================
+// Render Functions
+// ============================================
+function updateStats(stats) {
+  document.getElementById('statTotalUsers').textContent = stats.totalUsers || 0;
+  document.getElementById('statActiveSubscriptions').textContent = stats.activeSubscriptions || 0;
+  document.getElementById('statExpiringSoon').textContent = stats.expiringSoon || 0;
+  document.getElementById('statBlocked').textContent = stats.blockedUsers || 0;
+}
+
+function renderUsersTable() {
+  const container = document.getElementById('usersTableContainer');
+
+  if (currentUsers.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <div class="message">사용자를 찾을 수 없습니다</div>
+        <div class="submessage">검색어를 변경하거나 새로고침을 시도해보세요</div>
+      </div>
+    `;
+    document.getElementById('pagination').style.display = 'none';
+    return;
+  }
+
+  // Pagination
+  const totalPages = Math.ceil(currentUsers.length / USERS_PER_PAGE);
+  const start = (currentPage - 1) * USERS_PER_PAGE;
+  const end = start + USERS_PER_PAGE;
+  const pageUsers = currentUsers.slice(start, end);
+
+  // Render table
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>사용자</th>
+          <th>인증 방식</th>
+          <th>구독 플랜</th>
+          <th>구독 상태</th>
+          <th>가입일</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  pageUsers.forEach(user => {
+    const displayName = user.nickname || user.username || user.kakao_id;
+    const authType = user.auth_type === 'kakao' ? 'kakao' : 'password';
+    const sub = user.subscription || {};
+    const plan = sub.plan || 'free';
+    const status = user.is_blocked ? 'blocked' : (sub.isActive ? 'active' : 'expired');
+    const createdAt = new Date(user.created_at).toLocaleDateString('ko-KR');
+
+    html += `
+      <tr>
+        <td>
+          <strong>${escapeHtml(displayName)}</strong>
+          ${user.email ? `<br><small>${escapeHtml(user.email)}</small>` : ''}
+          ${user.admin_memo ? `<br><small style="color: #999;">📝 ${escapeHtml(user.admin_memo)}</small>` : ''}
+        </td>
+        <td><span class="badge ${authType}">${authType === 'kakao' ? '카카오' : 'ID/PW'}</span></td>
+        <td><span class="badge ${plan}">${plan.toUpperCase()}</span></td>
+        <td><span class="badge ${status}">${getStatusText(status)}</span></td>
+        <td>${createdAt}</td>
+        <td>
+          <button class="action-btn secondary" onclick='viewUser(${JSON.stringify(user)})'>👁️ 상세</button>
+          <button class="action-btn primary" onclick='openAddSubModal("${user.id}")'>➕ 구독</button>
+          <button class="action-btn success" onclick='openMemoModal("${user.id}", "${escapeHtml(user.admin_memo || '')}")'>📝 메모</button>
+          ${user.is_blocked
+            ? `<button class="action-btn success" onclick='unblockUser("${user.id}")'>✅ 해제</button>`
+            : `<button class="action-btn danger" onclick='openBlockModal("${user.id}")'>🚫 차단</button>`
+          }
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+
+  // Update pagination
+  document.getElementById('pagination').style.display = totalPages > 1 ? 'flex' : 'none';
+  document.getElementById('currentPage').textContent = currentPage;
+  document.getElementById('totalPages').textContent = totalPages;
+  document.querySelector('.pagination button:first-child').disabled = currentPage === 1;
+  document.querySelector('.pagination button:last-child').disabled = currentPage === totalPages;
+}
+
+function getStatusText(status) {
+  switch (status) {
+    case 'active': return '활성';
+    case 'expired': return '만료';
+    case 'blocked': return '차단됨';
+    default: return '알 수 없음';
+  }
+}
+
+// ============================================
+// User Actions
+// ============================================
+function searchUsers() {
+  const search = document.getElementById('searchInput').value.trim();
+  loadUsers(search);
+}
+
+function previousPage() {
+  if (currentPage > 1) {
+    currentPage--;
+    renderUsersTable();
+  }
+}
+
+function nextPage() {
+  const totalPages = Math.ceil(currentUsers.length / USERS_PER_PAGE);
+  if (currentPage < totalPages) {
+    currentPage++;
+    renderUsersTable();
+  }
+}
+
+function viewUser(user) {
+  const container = document.getElementById('userDetailContent');
+  const sub = user.subscription || {};
+
+  let html = `
+    <div class="user-detail-row">
+      <div class="label">사용자 ID</div>
+      <div class="value">${escapeHtml(user.id)}</div>
+    </div>
+    <div class="user-detail-row">
+      <div class="label">인증 방식</div>
+      <div class="value"><span class="badge ${user.auth_type}">${user.auth_type === 'kakao' ? '카카오' : 'ID/PW'}</span></div>
+    </div>
+  `;
+
+  if (user.username) {
+    html += `
+      <div class="user-detail-row">
+        <div class="label">아이디</div>
+        <div class="value">${escapeHtml(user.username)}</div>
+      </div>
+    `;
+  }
+
+  if (user.kakao_id) {
+    html += `
+      <div class="user-detail-row">
+        <div class="label">카카오 ID</div>
+        <div class="value">${escapeHtml(user.kakao_id)}</div>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="user-detail-row">
+      <div class="label">닉네임</div>
+      <div class="value">${escapeHtml(user.nickname || '-')}</div>
+    </div>
+    <div class="user-detail-row">
+      <div class="label">이메일</div>
+      <div class="value">${escapeHtml(user.email || '-')}</div>
+    </div>
+    <div class="user-detail-row">
+      <div class="label">구독 플랜</div>
+      <div class="value"><span class="badge ${sub.plan || 'free'}">${(sub.plan || 'free').toUpperCase()}</span></div>
+    </div>
+    <div class="user-detail-row">
+      <div class="label">구독 상태</div>
+      <div class="value"><span class="badge ${sub.isActive ? 'active' : 'expired'}">${sub.isActive ? '활성' : '만료'}</span></div>
+    </div>
+  `;
+
+  if (sub.startDate) {
+    html += `
+      <div class="user-detail-row">
+        <div class="label">구독 시작일</div>
+        <div class="value">${new Date(sub.startDate).toLocaleString('ko-KR')}</div>
+      </div>
+      <div class="user-detail-row">
+        <div class="label">구독 종료일</div>
+        <div class="value">${new Date(sub.endDate).toLocaleString('ko-KR')}</div>
+      </div>
+      <div class="user-detail-row">
+        <div class="label">남은 기간</div>
+        <div class="value">${sub.daysLeft}일</div>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="user-detail-row">
+      <div class="label">차단 여부</div>
+      <div class="value"><span class="badge ${user.is_blocked ? 'blocked' : 'active'}">${user.is_blocked ? '차단됨' : '정상'}</span></div>
+    </div>
+  `;
+
+  if (user.block_reason) {
+    html += `
+      <div class="user-detail-row">
+        <div class="label">차단 사유</div>
+        <div class="value">${escapeHtml(user.block_reason)}</div>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="user-detail-row">
+      <div class="label">가입일</div>
+      <div class="value">${new Date(user.created_at).toLocaleString('ko-KR')}</div>
+    </div>
+    <div class="user-detail-row">
+      <div class="label">관리자 메모</div>
+      <div class="value">${escapeHtml(user.admin_memo || '-')}</div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+  openModal('userModal');
+}
+
+// ============================================
+// Subscription Management
+// ============================================
+function openAddSubModal(userId) {
+  document.getElementById('addSubUserId').value = userId;
+  document.getElementById('addSubPlan').value = 'pro';
+  document.getElementById('addSubDays').value = 30;
+  openModal('addSubModal');
+}
+
+async function handleAddSubscription(e) {
+  e.preventDefault();
+
+  const userId = document.getElementById('addSubUserId').value;
+  const plan = document.getElementById('addSubPlan').value;
+  const days = parseInt(document.getElementById('addSubDays').value);
+
+  if (!userId || !plan || !days) {
+    showError('모든 필드를 입력해주세요.');
+    return;
+  }
+
+  try {
+    await callAdminAPI('add_subscription', {
+      user_id: userId,
+      plan: plan,
+      days: days
+    });
+
+    showSuccess('구독이 추가되었습니다.');
+    closeModal();
+    await refreshData();
+  } catch (error) {
+    showError('구독 추가 실패: ' + error.message);
+  }
+}
+
+// ============================================
+// Memo Management
+// ============================================
+function openMemoModal(userId, currentMemo) {
+  document.getElementById('memoUserId').value = userId;
+  document.getElementById('memoText').value = currentMemo;
+  openModal('memoModal');
+}
+
+async function handleUpdateMemo(e) {
+  e.preventDefault();
+
+  const userId = document.getElementById('memoUserId').value;
+  const memo = document.getElementById('memoText').value.trim();
+
+  try {
+    await callAdminAPI('update_memo', {
+      user_id: userId,
+      memo: memo
+    });
+
+    showSuccess('메모가 저장되었습니다.');
+    closeModal();
+    await refreshData();
+  } catch (error) {
+    showError('메모 저장 실패: ' + error.message);
+  }
+}
+
+// ============================================
+// Block Management
+// ============================================
+function openBlockModal(userId) {
+  document.getElementById('blockUserId').value = userId;
+  document.getElementById('blockReason').value = '';
+  openModal('blockModal');
+}
+
+async function handleBlockUser(e) {
+  e.preventDefault();
+
+  const userId = document.getElementById('blockUserId').value;
+  const reason = document.getElementById('blockReason').value.trim();
+
+  if (!reason) {
+    showError('차단 사유를 입력해주세요.');
+    return;
+  }
+
+  try {
+    await callAdminAPI('block_user', {
+      user_id: userId,
+      reason: reason
+    });
+
+    showSuccess('사용자가 차단되었습니다.');
+    closeModal();
+    await refreshData();
+  } catch (error) {
+    showError('차단 실패: ' + error.message);
+  }
+}
+
+async function unblockUser(userId) {
+  if (!confirm('이 사용자의 차단을 해제하시겠습니까?')) {
+    return;
+  }
+
+  try {
+    await callAdminAPI('unblock_user', {
+      user_id: userId
+    });
+
+    showSuccess('차단이 해제되었습니다.');
+    await refreshData();
+  } catch (error) {
+    showError('차단 해제 실패: ' + error.message);
+  }
+}
+
+// ============================================
+// App Settings
+// ============================================
+async function updateAppSettings() {
+  const latestVersion = document.getElementById('settingLatestVersion').value.trim();
+  const minVersion = document.getElementById('settingMinVersion').value.trim();
+  const announcement = document.getElementById('settingAnnouncement').value.trim();
+
+  if (!latestVersion || !minVersion) {
+    showError('버전 정보를 입력해주세요.');
+    return;
+  }
+
+  try {
+    await callAdminAPI('update_app_config', {
+      latest_version: latestVersion,
+      min_version: minVersion,
+      announcement: announcement || null
+    });
+
+    showSuccess('앱 설정이 저장되었습니다.');
+  } catch (error) {
+    showError('설정 저장 실패: ' + error.message);
+  }
+}
+
+// ============================================
+// Modal Management
+// ============================================
+function openModal(modalId) {
+  document.getElementById(modalId).classList.add('show');
+}
+
+function closeModal() {
+  document.querySelectorAll('.modal').forEach(modal => {
+    modal.classList.remove('show');
+  });
+}
+
+// Close modal on background click
+document.querySelectorAll('.modal').forEach(modal => {
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeModal();
+    }
+  });
+});
+
+// ============================================
+// UI Helpers
+// ============================================
+function showLoading(show) {
+  document.getElementById('loading').classList.toggle('show', show);
+}
+
+function showError(message) {
+  const errorBox = document.getElementById('errorBox');
+  errorBox.textContent = message;
+  errorBox.classList.add('show');
+}
+
+function showSuccess(message) {
+  const successBox = document.getElementById('successBox');
+  successBox.textContent = message;
+  successBox.classList.add('show');
+}
+
+function hideMessages() {
+  document.getElementById('errorBox').classList.remove('show');
+  document.getElementById('successBox').classList.remove('show');
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
