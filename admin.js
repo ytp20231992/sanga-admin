@@ -78,14 +78,20 @@ function switchTab(tab) {
 // ============================================
 async function callAdminAPI(action, data = {}) {
   try {
+    const adminToken = localStorage.getItem('admin_token');
+
+    if (!adminToken) {
+      throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+    }
+
     const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-manage`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${adminToken}`,
       },
       body: JSON.stringify({
-        admin_kakao_id: ADMIN_KAKAO_ID,
         action: action,
         ...data
       }),

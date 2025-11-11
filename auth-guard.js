@@ -194,7 +194,7 @@ async function handleKakaoCallback() {
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: KAKAO_JS_KEY,
+        client_id: 'bf7d5c75f1dfb2a53e73ba3b47bbaa4b',
         redirect_uri: window.location.origin + window.location.pathname,
         code: code,
       }),
