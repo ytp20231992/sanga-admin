@@ -187,14 +187,14 @@ function loginWithKakao() {
       console.log('카카오 로그인 성공 메시지 수신:', event.data);
 
       // 관리자 권한 확인
-      if (event.data.user.kakao_id !== ADMIN_KAKAO_ID) {
+      if (event.data.user.kakaoId !== ADMIN_KAKAO_ID) {
         alert('❌ 관리자 권한이 없습니다.\\n\\n등록된 관리자만 접근할 수 있습니다.');
         window.removeEventListener('message', messageHandler);
         return;
       }
 
       // JWT 토큰과 사용자 정보 저장
-      localStorage.setItem('admin_kakao_id', event.data.user.kakao_id);
+      localStorage.setItem('admin_kakao_id', event.data.user.kakaoId);
       localStorage.setItem('admin_token', event.data.token);
       localStorage.setItem('admin_name', event.data.user.nickname || '관리자');
 
