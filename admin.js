@@ -392,68 +392,125 @@ async function loadDeletedUsers() {
 
   try {
     const result = await callAdminAPI('list_deleted_users');
+    const blockedUsers = result.blockedUsers || [];
     const deletedUsers = result.deletedUsers || [];
 
-    if (deletedUsers.length === 0) {
+    if (blockedUsers.length === 0 && deletedUsers.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="icon">📭</div>
-          <div class="message">탈퇴한 회원이 없습니다</div>
+          <div class="message">차단/탈퇴한 회원이 없습니다</div>
         </div>
       `;
       return;
     }
 
-    // Render table
     let html = `
-      <table>
-        <thead>
-          <tr>
-            <th>사용자</th>
-            <th>가입일</th>
-            <th>마지막 로그인</th>
-            <th>탈퇴/차단일</th>
-            <th>사유</th>
-            <th>관리</th>
-          </tr>
-        </thead>
-        <tbody>
+      <div style="margin-bottom: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+        <strong>📊 요약:</strong>
+        차단 ${blockedUsers.length}명 | 탈퇴 ${deletedUsers.length}명
+      </div>
     `;
 
-    deletedUsers.forEach(item => {
-      const user = item.user;
-      if (!user) return; // 사용자 정보가 없으면 스킵
-
-      const displayName = user.nickname || user.username || user.kakao_id || '알 수 없음';
-      const email = user.email || '-';
-      const createdAt = user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-';
-      const lastLogin = user.last_login ? new Date(user.last_login).toLocaleDateString('ko-KR') : '-';
-      const blockedAt = item.blocked_at ? new Date(item.blocked_at).toLocaleDateString('ko-KR') : '-';
-      const reason = item.reason || '-';
-
+    // 1. 차단된 사용자
+    if (blockedUsers.length > 0) {
       html += `
-        <tr>
-          <td>
-            <strong>${escapeHtml(displayName)}</strong>
-            ${email !== '-' ? `<br><small>${escapeHtml(email)}</small>` : ''}
-          </td>
-          <td>${createdAt}</td>
-          <td>${lastLogin}</td>
-          <td>${blockedAt}</td>
-          <td>${escapeHtml(reason)}</td>
-          <td>
-            <button class="action-btn success" onclick='restoreUser("${user.id}", "${escapeHtml(displayName)}")'>↩️ 복구</button>
-            <button class="action-btn danger" onclick='permanentDeleteUser("${user.id}", "${escapeHtml(displayName)}")'>🗑️ 영구삭제</button>
-          </td>
-        </tr>
+        <h3 style="margin-top: 20px; margin-bottom: 10px;">🚫 차단된 회원 (${blockedUsers.length}명)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>사용자</th>
+              <th>가입일</th>
+              <th>차단일</th>
+              <th>차단 사유</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody>
       `;
-    });
 
-    html += `</tbody></table>`;
+      blockedUsers.forEach(item => {
+        const user = item.user;
+        if (!user) return;
+
+        const displayName = user.nickname || user.username || user.kakao_id || '알 수 없음';
+        const email = user.email || '-';
+        const createdAt = user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-';
+        const blockedAt = item.blocked_at ? new Date(item.blocked_at).toLocaleDateString('ko-KR') : '-';
+        const reason = item.reason || '-';
+
+        html += `
+          <tr>
+            <td>
+              <strong>${escapeHtml(displayName)}</strong>
+              ${email !== '-' ? `<br><small>${escapeHtml(email)}</small>` : ''}
+            </td>
+            <td>${createdAt}</td>
+            <td>${blockedAt}</td>
+            <td>${escapeHtml(reason)}</td>
+            <td>
+              <button class="action-btn success" onclick='unblockUser("${user.id}")'>✅ 해제</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+    }
+
+    // 2. 탈퇴한 사용자 (개인정보 최소화)
+    if (deletedUsers.length > 0) {
+      html += `
+        <h3 style="margin-top: 30px; margin-bottom: 10px;">👤 탈퇴한 회원 (${deletedUsers.length}명) - 법정 분리 보관</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>마스킹된 이메일</th>
+              <th>탈퇴일</th>
+              <th>탈퇴 유형</th>
+              <th>유료 구독 이력</th>
+              <th>보관 만료일</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      deletedUsers.forEach(item => {
+        const deletedAt = new Date(item.deleted_at).toLocaleDateString('ko-KR');
+        const retentionUntil = new Date(item.retention_until).toLocaleDateString('ko-KR');
+        const deletionType = item.deletion_type === 'self' ? '본인 탈퇴' : '관리자 탈퇴';
+        const hadPaid = item.had_paid_subscription ? '✅ 있음' : '❌ 없음';
+
+        html += `
+          <tr>
+            <td><code style="font-size: 10px;">${item.original_user_id.substring(0, 8)}...</code></td>
+            <td>${escapeHtml(item.masked_email || '-')}</td>
+            <td>${deletedAt}</td>
+            <td>${deletionType}</td>
+            <td>${hadPaid}</td>
+            <td>${retentionUntil}</td>
+            <td>
+              <button class="action-btn danger" onclick='permanentDeleteUser("${item.original_user_id}", "탈퇴 회원")'>🗑️ 영구삭제</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      html += `
+        <div style="margin-top: 10px; padding: 12px; background: #fff3cd; border-radius: 6px; font-size: 13px;">
+          ⚠️ <strong>법정 보관 안내:</strong> 전자상거래법에 따라 탈퇴 회원의 거래 정보는 5년간 분리 보관됩니다.
+          보관 만료일 이후 자동으로 영구 삭제됩니다.
+        </div>
+      `;
+    }
+
     container.innerHTML = html;
 
   } catch (error) {
-    showError('탈퇴 회원 목록 로드 실패: ' + error.message);
+    showError('차단/탈퇴 회원 목록 로드 실패: ' + error.message);
   } finally {
     showLoading(false);
   }
@@ -820,13 +877,11 @@ async function handleAddSubscription(e) {
   }
 
   try {
-    // Convert days to months (rounded up)
-    const months = Math.ceil(parseInt(days) / 30);
-
+    // Send days directly to the API (admin-manage now supports days parameter)
     await callAdminAPI('add_subscription', {
       userId: userId,
       plan: plan,
-      months: months
+      days: days
     });
 
     showSuccess('구독이 추가되었습니다.');
@@ -854,7 +909,7 @@ async function handleUpdateMemo(e) {
 
   try {
     await callAdminAPI('update_memo', {
-      user_id: userId,
+      userId: userId,
       memo: memo
     });
 
@@ -907,7 +962,7 @@ async function unblockUser(userId) {
 
   try {
     await callAdminAPI('unblock_user', {
-      user_id: userId
+      userId: userId
     });
 
     showSuccess('차단이 해제되었습니다.');
