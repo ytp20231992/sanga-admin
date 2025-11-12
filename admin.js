@@ -21,6 +21,7 @@ let currentTab = 'users';
 // ============================================
 // auth-guard.js에서 인증이 완료된 후 호출됨
 function initAdminDashboard() {
+  updateDeployTime();
   initTabs();
   refreshData();
 
@@ -841,5 +842,26 @@ async function changeUserGroup(userId, groupId) {
     loadUsers(); // 사용자 목록 새로고침
   } catch (error) {
     showError('그룹 변경 실패: ' + error.message);
+  }
+}
+
+// ============================================
+// Deploy Time Display
+// ============================================
+function updateDeployTime() {
+  const now = new Date();
+  const deployEl = document.getElementById('deployTime');
+  if (deployEl) {
+    const timeStr = now.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    deployEl.textContent = timeStr;
+    deployEl.title = '페이지 최초 로드 시각 (GitHub Pages 배포 후 최대 5분 소요)';
   }
 }
