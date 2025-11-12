@@ -29,6 +29,7 @@ function initAdminDashboard() {
   document.getElementById('addSubForm').addEventListener('submit', handleAddSubscription);
   document.getElementById('memoForm').addEventListener('submit', handleUpdateMemo);
   document.getElementById('blockForm').addEventListener('submit', handleBlockUser);
+  document.getElementById('editUserForm').addEventListener('submit', handleEditUser);
 
   // Search on Enter
   document.getElementById('searchInput').addEventListener('keypress', (e) => {
@@ -329,12 +330,14 @@ function renderUsersTable() {
         <td>${createdAt}</td>
         <td>
           <button class="action-btn secondary" onclick='viewUser(${JSON.stringify(user)})'>👁️ 상세</button>
+          <button class="action-btn" onclick='openEditUserModal(${JSON.stringify(user)})'>✏️ 수정</button>
           <button class="action-btn primary" onclick='openAddSubModal("${user.user_id}")'>➕ 구독</button>
           <button class="action-btn success" onclick='openMemoModal("${user.user_id}", "${escapeHtml(user.admin_memo || '')}")'>📝 메모</button>
           ${user.is_blocked
             ? `<button class="action-btn success" onclick='unblockUser("${user.user_id}")'>✅ 해제</button>`
             : `<button class="action-btn danger" onclick='openBlockModal("${user.user_id}")'>🚫 차단</button>`
           }
+          <button class="action-btn danger" onclick='confirmDeleteUser("${user.user_id}", "${escapeHtml(displayName)}")'>🗑️ 탈퇴</button>
         </td>
       </tr>
     `;
@@ -842,6 +845,76 @@ async function changeUserGroup(userId, groupId) {
     loadUsers(); // 사용자 목록 새로고침
   } catch (error) {
     showError('그룹 변경 실패: ' + error.message);
+  }
+}
+
+// ============================================
+// User Edit/Delete Functions
+// ============================================
+function openEditUserModal(user) {
+  document.getElementById('editUserId').value = user.user_id;
+  document.getElementById('editUsername').value = user.username || '';
+  document.getElementById('editNickname').value = user.nickname || '';
+  document.getElementById('editEmail').value = user.email || '';
+  document.getElementById('editPassword').value = '';
+
+  // 카카오 사용자면 username 비활성화
+  const isKakao = user.auth_type === 'kakao';
+  document.getElementById('editUsername').disabled = isKakao;
+  document.getElementById('editPassword').disabled = isKakao;
+
+  openModal('editUserModal');
+}
+
+async function handleEditUser(e) {
+  e.preventDefault();
+
+  const userId = document.getElementById('editUserId').value;
+  const username = document.getElementById('editUsername').value.trim();
+  const nickname = document.getElementById('editNickname').value.trim();
+  const email = document.getElementById('editEmail').value.trim();
+  const newPassword = document.getElementById('editPassword').value;
+
+  try {
+    // 사용자 정보 업데이트
+    if (username || nickname || email) {
+      await callAdminAPI('update_user', {
+        userId,
+        username: username || undefined,
+        nickname: nickname || undefined,
+        email: email || undefined
+      });
+    }
+
+    // 비밀번호 재설정 (입력된 경우만)
+    if (newPassword) {
+      await callAdminAPI('reset_password', {
+        userId,
+        newPassword
+      });
+    }
+
+    showSuccess('사용자 정보가 수정되었습니다.');
+    closeModal();
+    await loadUsers();
+  } catch (error) {
+    showError('사용자 정보 수정 실패: ' + error.message);
+  }
+}
+
+function confirmDeleteUser(userId, displayName) {
+  if (confirm(`정말로 "${displayName}" 사용자를 탈퇴 처리하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.\n- 활성 구독이 취소됩니다\n- 사용자가 차단 처리됩니다`)) {
+    deleteUser(userId, false);
+  }
+}
+
+async function deleteUser(userId, hardDelete = false) {
+  try {
+    await callAdminAPI('delete_user', { userId, hardDelete });
+    showSuccess(hardDelete ? '사용자가 완전히 삭제되었습니다.' : '사용자가 탈퇴 처리되었습니다.');
+    await loadUsers();
+  } catch (error) {
+    showError('사용자 탈퇴 처리 실패: ' + error.message);
   }
 }
 

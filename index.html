@@ -609,6 +609,38 @@
     </div>
   </div>
 
+  <!-- Modal: Edit User -->
+  <div class="modal" id="editUserModal">
+    <div class="modal-content">
+      <div class="modal-header">사용자 정보 수정</div>
+      <form id="editUserForm">
+        <input type="hidden" id="editUserId">
+        <div class="form-group">
+          <label>아이디 (ID/PW 로그인용)</label>
+          <input type="text" id="editUsername" placeholder="아이디">
+          <small style="color: #999;">카카오 로그인 사용자는 변경 불가</small>
+        </div>
+        <div class="form-group">
+          <label>닉네임</label>
+          <input type="text" id="editNickname" placeholder="닉네임">
+        </div>
+        <div class="form-group">
+          <label>이메일</label>
+          <input type="email" id="editEmail" placeholder="이메일">
+        </div>
+        <div class="form-group">
+          <label>비밀번호 재설정 (ID/PW 로그인용)</label>
+          <input type="password" id="editPassword" placeholder="새 비밀번호 (변경 시에만 입력)">
+          <small style="color: #999;">카카오 로그인 사용자는 사용 안 함</small>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-cancel" onclick="closeModal()">취소</button>
+          <button type="submit" class="btn-primary">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal: Add Subscription -->
   <div class="modal" id="addSubModal">
     <div class="modal-content">
