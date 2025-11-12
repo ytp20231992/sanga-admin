@@ -564,6 +564,11 @@ function renderUsersTable() {
     const subCount = user.subscription_count || 0;
     const hasActiveSubscription = user.subscription_id && user.status === 'active' && user.end_date && new Date(user.end_date) > new Date();
 
+    // 구독 기간 정보
+    const startDate = user.start_date ? new Date(user.start_date).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) : null;
+    const endDate = user.end_date ? new Date(user.end_date).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }) : null;
+    const daysLeft = hasActiveSubscription && user.end_date ? Math.ceil((new Date(user.end_date) - new Date()) / (1000 * 60 * 60 * 24)) : null;
+
     html += `
       <tr>
         <td>
@@ -580,7 +585,11 @@ function renderUsersTable() {
           </div>
         </td>
         <td><span class="badge ${authType}">${authType === 'kakao' ? '카카오' : 'ID/PW'}</span></td>
-        <td><span class="badge ${plan}">${plan.toUpperCase()}</span></td>
+        <td>
+          <span class="badge ${plan}">${plan.toUpperCase()}</span>
+          ${hasActiveSubscription && startDate && endDate ? `<br><small style="color: #666; white-space: nowrap;">${startDate} ~ ${endDate}</small>` : ''}
+          ${daysLeft !== null && daysLeft > 0 ? `<br><small style="color: ${daysLeft <= 7 ? '#f44336' : '#4caf50'};">D-${daysLeft}</small>` : ''}
+        </td>
         <td><span class="badge ${status}">${getStatusText(status)}</span></td>
         <td>${createdAt}</td>
         <td style="white-space: nowrap;">
