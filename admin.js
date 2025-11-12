@@ -91,9 +91,9 @@ async function callAdminAPI(action, data = {}) {
       headers: {
         'Content-Type': 'application/json',
         'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${adminToken}`,
       },
       body: JSON.stringify({
+        admin_token: adminToken,
         action: action,
         ...data
       }),
