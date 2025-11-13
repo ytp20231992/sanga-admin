@@ -366,13 +366,13 @@ async function viewSubscriptionHistory(userId, userName) {
 }
 
 async function cancelSubscription(userId) {
-  if (!confirm('이 구독을 취소하시겠습니까?\n\n구독이 즉시 취소되며, 남은 기간은 유지됩니다.')) {
+  if (!confirm('예약된 구독을 취소하시겠습니까?\n\n현재 구독은 유지되며, 예약 구독만 취소됩니다.')) {
     return;
   }
 
   try {
-    await callAdminAPI('cancel_subscription', { userId });
-    showSuccess('구독이 취소되었습니다.');
+    await callAdminAPI('cancel_scheduled_subscription', { userId });
+    showSuccess('예약 구독이 취소되었습니다.');
 
     // 현재 탭에 따라 적절한 목록 새로고침
     if (currentTab === 'users') {
