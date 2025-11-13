@@ -257,7 +257,7 @@ async function loadSubscriptions() {
           <td>
             <button class="action-btn secondary" onclick='viewSubscriptionHistory("${user.user_id}", "${escapeHtml(user.nickname || user.username || user.kakao_id)}")'>📋 이력</button>
             <button class="action-btn primary" onclick='openAddSubModal("${user.user_id}")'>➕ 연장</button>
-            <button class="action-btn danger" onclick='cancelSubscription("${user.subscription_id}", "${user.user_id}")'>❌ 취소</button>
+            <button class="action-btn danger" onclick='cancelSubscription("${user.user_id}")'>❌ 취소</button>
           </td>
         </tr>
       `;
@@ -365,13 +365,13 @@ async function viewSubscriptionHistory(userId, userName) {
   }
 }
 
-async function cancelSubscription(subscriptionId, userId) {
+async function cancelSubscription(userId) {
   if (!confirm('이 구독을 취소하시겠습니까?\n\n구독이 즉시 취소되며, 남은 기간은 유지됩니다.')) {
     return;
   }
 
   try {
-    await callAdminAPI('cancel_subscription', { subscriptionId });
+    await callAdminAPI('cancel_subscription', { userId });
     showSuccess('구독이 취소되었습니다.');
 
     // 현재 탭에 따라 적절한 목록 새로고침
@@ -681,7 +681,7 @@ function renderUsersTable() {
           }
           <button class="action-btn primary" onclick='openAddSubModal("${user.user_id}")'>${hasActiveSubscription ? '➕ 연장' : '➕ 구독'}</button>
           ${hasActiveSubscription
-            ? `<button class="action-btn danger" onclick='cancelSubscription("${user.subscription_id}", "${user.user_id}")'>❌ 취소</button>`
+            ? `<button class="action-btn danger" onclick='cancelSubscription("${user.user_id}")'>❌ 취소</button>`
             : ''
           }
           <button class="action-btn success" onclick='openMemoModal("${user.user_id}", "${escapeHtml(user.admin_memo || '')}")'>📝 메모</button>
