@@ -638,10 +638,14 @@
   <!-- Modal: User Detail -->
   <div class="modal" id="userModal">
     <div class="modal-content">
-      <div class="modal-header">사용자 상세 정보</div>
+      <div class="modal-header">👁️ 회원 상세</div>
       <div id="userDetailContent"></div>
       <div class="form-actions">
         <button class="btn-cancel" onclick="closeModal()">닫기</button>
+        <button type="button" class="action-btn" id="btnEditUser" onclick="openEditUserFromDetail()">✏️ 정보 수정</button>
+        <button type="button" class="action-btn danger" id="btnBlockUser" onclick="openBlockModalFromDetail()" style="display: none;">🚫 차단</button>
+        <button type="button" class="action-btn success" id="btnUnblockUser" onclick="unblockUserFromDetail()" style="display: none;">✅ 차단 해제</button>
+        <button type="button" class="action-btn danger" id="btnDeleteUser" onclick="confirmDeleteUserFromDetail()">🗑️ 탈퇴</button>
       </div>
     </div>
   </div>
@@ -678,15 +682,18 @@
     </div>
   </div>
 
-  <!-- Modal: Subscription History -->
-  <div class="modal" id="subscriptionHistoryModal">
+  <!-- Modal: Subscription Management (구독 관리 통합 모달) -->
+  <div class="modal" id="subscriptionManageModal">
     <div class="modal-content" style="max-width: 900px;">
-      <div class="modal-header">구독 이력</div>
-      <div id="subscriptionHistoryContent">
+      <div class="modal-header">💳 구독 관리</div>
+      <div id="subscriptionManageContent">
         <p style="text-align: center; padding: 20px; color: #999;">로딩 중...</p>
       </div>
-      <div class="modal-actions">
-        <button type="button" class="action-btn secondary" onclick="closeModal()">닫기</button>
+      <div class="form-actions" style="margin-top: 20px;">
+        <button type="button" class="btn-cancel" onclick="closeModal()">닫기</button>
+        <button type="button" class="action-btn primary" id="btnAddSubscription" onclick="openAddSubModalFromManage()">➕ 연장/추가</button>
+        <button type="button" class="action-btn warning" id="btnCancelScheduled" onclick="cancelScheduledFromManage()" style="background: #ff9800; display: none;">🗑️ 예약 취소</button>
+        <button type="button" class="action-btn danger" id="btnCancelAll" onclick="cancelAllFromManage()" style="display: none;">❌ 모두 취소</button>
       </div>
     </div>
   </div>

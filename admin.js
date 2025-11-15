@@ -279,6 +279,139 @@ async function loadSubscriptions() {
 }
 
 // ============================================
+// Subscription Management Modal (통합 구독 관리)
+// ============================================
+let currentManageUserId = null;
+let currentManageUser = null;
+
+async function openSubscriptionManageModal(user) {
+  currentManageUserId = user.user_id;
+  currentManageUser = user;
+
+  const modal = document.getElementById('subscriptionManageModal');
+  const content = document.getElementById('subscriptionManageContent');
+
+  content.innerHTML = '<p style="text-align: center; padding: 20px; color: #999;">로딩 중...</p>';
+  openModal('subscriptionManageModal');
+
+  try {
+    const result = await callAdminAPI('get_subscription_history', { userId: user.user_id });
+    const history = result.history || [];
+
+    const displayName = user.nickname || user.username || user.kakao_id;
+
+    if (history.length === 0) {
+      content.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <div class="message">구독 이력이 없습니다</div>
+          <div class="submessage">${escapeHtml(displayName)}님의 구독 이력이 없습니다.</div>
+        </div>
+      `;
+    } else {
+      let html = `
+        <h4 style="margin-bottom: 16px;">${escapeHtml(displayName)}님의 구독 이력</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>플랜</th>
+              <th>타입</th>
+              <th>시작일</th>
+              <th>종료일</th>
+              <th>기간</th>
+              <th>상태</th>
+              <th>등록일</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      history.forEach((sub, index) => {
+        const startDate = new Date(sub.start_date).toLocaleDateString('ko-KR');
+        const endDate = new Date(sub.end_date).toLocaleDateString('ko-KR');
+        const createdAt = new Date(sub.created_at).toLocaleDateString('ko-KR');
+        const durationDays = Math.ceil((new Date(sub.end_date) - new Date(sub.start_date)) / (1000 * 60 * 60 * 24));
+
+        const subType = sub.subscription_type === 'current' ? '현재' : '예약';
+        const subTypeClass = sub.subscription_type === 'current' ? 'active' : 'warning';
+
+        const statusClass = sub.status === 'active' ? 'active' :
+                           sub.status === 'cancelled' ? 'blocked' :
+                           sub.status === 'refunded' ? 'danger' : 'expired';
+        const statusText = sub.status === 'active' ? '활성' :
+                          sub.status === 'cancelled' ? '취소됨' :
+                          sub.status === 'refunded' ? '환불됨' : '만료';
+
+        html += `
+          <tr>
+            <td>${history.length - index}</td>
+            <td><span class="badge ${sub.plan}">${sub.plan.toUpperCase()}</span></td>
+            <td><span class="badge ${subTypeClass}">${subType}</span></td>
+            <td>${startDate}</td>
+            <td>${endDate}</td>
+            <td>${durationDays}일</td>
+            <td><span class="badge ${statusClass}">${statusText}</span></td>
+            <td>${createdAt}</td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+
+      // 통계 정보 추가
+      const totalDays = history
+        .filter(s => s.status !== 'refunded')
+        .reduce((sum, s) => sum + Math.ceil((new Date(s.end_date) - new Date(s.start_date)) / (1000 * 60 * 60 * 24)), 0);
+
+      html += `
+        <div style="margin-top: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+          <strong>📊 통계</strong><br>
+          <small>총 구독 횟수: ${history.length}회 | 총 구독 일수: ${totalDays}일</small>
+        </div>
+      `;
+
+      content.innerHTML = html;
+    }
+
+    // 버튼 표시/숨김 처리
+    const hasActiveSubscription = user.subscription_id && user.status === 'active' && user.end_date && new Date(user.end_date) > new Date();
+    const hasScheduled = user.scheduled_subscription && user.scheduled_subscription.status === 'active';
+
+    document.getElementById('btnCancelScheduled').style.display = hasScheduled ? 'inline-block' : 'none';
+    document.getElementById('btnCancelAll').style.display = hasActiveSubscription ? 'inline-block' : 'none';
+
+  } catch (error) {
+    content.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">❌</div>
+        <div class="message">구독 이력을 불러올 수 없습니다</div>
+        <div class="submessage">${escapeHtml(error.message)}</div>
+      </div>
+    `;
+  }
+}
+
+function openAddSubModalFromManage() {
+  if (!currentManageUserId) return;
+  openAddSubModal(currentManageUserId);
+}
+
+async function cancelScheduledFromManage() {
+  if (!currentManageUserId) return;
+  await cancelScheduledSubscription(currentManageUserId);
+  // 모달 새로고침
+  await openSubscriptionManageModal(currentManageUser);
+}
+
+async function cancelAllFromManage() {
+  if (!currentManageUserId) return;
+  await cancelAllSubscriptions(currentManageUserId);
+  closeModal();
+  await loadUsers();
+}
+
+// ============================================
 // Subscription History Management (구독관리 탭 제거로 주석 처리)
 // ============================================
 async function viewSubscriptionHistory(userId, userName) {
@@ -720,26 +853,8 @@ function renderUsersTable() {
         <td>${createdAt}</td>
         <td style="white-space: nowrap;">
           <button class="action-btn secondary" onclick='viewUser(${JSON.stringify(user)})'>👁️ 상세</button>
-          <button class="action-btn" onclick='openEditUserModal(${JSON.stringify(user)})'>✏️ 수정</button>
-          ${subCount > 0
-            ? `<button class="action-btn secondary" onclick='viewSubscriptionHistory("${user.user_id}", "${escapeHtml(displayName)}")'>📋 이력</button>`
-            : ''
-          }
-          <button class="action-btn primary" onclick='openAddSubModal("${user.user_id}")'>${hasActiveSubscription ? '➕ 연장' : '➕ 구독'}</button>
-          ${hasScheduled
-            ? `<button class="action-btn warning" onclick='cancelScheduledSubscription("${user.user_id}")' style="background: #ff9800;">🗑️ 예약취소</button>`
-            : ''
-          }
-          ${hasActiveSubscription
-            ? `<button class="action-btn danger" onclick='cancelAllSubscriptions("${user.user_id}")'>❌ 모두취소</button>`
-            : ''
-          }
+          <button class="action-btn primary" onclick='openSubscriptionManageModal(${JSON.stringify(user)})'>💳 구독</button>
           <button class="action-btn success" data-user-id="${user.user_id}" data-memo="${escapeHtml(user.admin_memo || '')}" onclick='openMemoModalFromButton(this)'>📝 메모</button>
-          ${user.is_blocked
-            ? `<button class="action-btn success" onclick='unblockUser("${user.user_id}")'>✅ 해제</button>`
-            : `<button class="action-btn danger" onclick='openBlockModal("${user.user_id}")'>🚫 차단</button>`
-          }
-          <button class="action-btn danger" onclick='confirmDeleteUser("${user.user_id}", "${escapeHtml(displayName)}")'>🗑️ 탈퇴</button>
         </td>
       </tr>
     `;
@@ -767,29 +882,12 @@ function getStatusText(status) {
 }
 
 // ============================================
-// User Actions
+// User Detail Modal with Actions
 // ============================================
-function searchUsers() {
-  const search = document.getElementById('searchInput').value.trim();
-  loadUsers(search);
-}
-
-function previousPage() {
-  if (currentPage > 1) {
-    currentPage--;
-    renderUsersTable();
-  }
-}
-
-function nextPage() {
-  const totalPages = Math.ceil(currentUsers.length / USERS_PER_PAGE);
-  if (currentPage < totalPages) {
-    currentPage++;
-    renderUsersTable();
-  }
-}
+let currentDetailUser = null;
 
 function viewUser(user) {
+  currentDetailUser = user;
   const container = document.getElementById('userDetailContent');
   const sub = user.subscription || {};
 
@@ -886,7 +984,65 @@ function viewUser(user) {
   `;
 
   container.innerHTML = html;
+
+  // 차단 상태에 따라 버튼 표시/숨김
+  if (user.is_blocked) {
+    document.getElementById('btnBlockUser').style.display = 'none';
+    document.getElementById('btnUnblockUser').style.display = 'inline-block';
+  } else {
+    document.getElementById('btnBlockUser').style.display = 'inline-block';
+    document.getElementById('btnUnblockUser').style.display = 'none';
+  }
+
   openModal('userModal');
+}
+
+function openEditUserFromDetail() {
+  if (!currentDetailUser) return;
+  openEditUserModal(currentDetailUser);
+}
+
+function openBlockModalFromDetail() {
+  if (!currentDetailUser) return;
+  closeModal();
+  openBlockModal(currentDetailUser.user_id);
+}
+
+async function unblockUserFromDetail() {
+  if (!currentDetailUser) return;
+  await unblockUser(currentDetailUser.user_id);
+  closeModal();
+  await loadUsers();
+}
+
+function confirmDeleteUserFromDetail() {
+  if (!currentDetailUser) return;
+  const displayName = currentDetailUser.nickname || currentDetailUser.username || currentDetailUser.kakao_id;
+  closeModal();
+  confirmDeleteUser(currentDetailUser.user_id, displayName);
+}
+
+// ============================================
+// User Actions
+// ============================================
+function searchUsers() {
+  const search = document.getElementById('searchInput').value.trim();
+  loadUsers(search);
+}
+
+function previousPage() {
+  if (currentPage > 1) {
+    currentPage--;
+    renderUsersTable();
+  }
+}
+
+function nextPage() {
+  const totalPages = Math.ceil(currentUsers.length / USERS_PER_PAGE);
+  if (currentPage < totalPages) {
+    currentPage++;
+    renderUsersTable();
+  }
 }
 
 // ============================================
