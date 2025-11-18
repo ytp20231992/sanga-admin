@@ -1409,10 +1409,13 @@ async function openChangeGroupModal(userId) {
 
 async function changeUserGroup(userId, groupId) {
   try {
+    console.log('🔍 프론트엔드: 그룹 변경 요청', { userId, groupId, userIdType: typeof userId, groupIdType: typeof groupId });
     const result = await callAdminAPI('change_user_group', { userId, groupId });
+    console.log('✅ 프론트엔드: 그룹 변경 성공', result);
     showSuccess(result.message || '사용자 그룹이 변경되었습니다.');
     loadUsers(); // 사용자 목록 새로고침
   } catch (error) {
+    console.error('❌ 프론트엔드: 그룹 변경 실패', error);
     showError('그룹 변경 실패: ' + error.message);
   }
 }
